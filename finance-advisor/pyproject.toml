@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "finance-advisor"
+version = "0.1.0"
+description = "AI Personal Finance Advisor"
+requires-python = ">=3.11"
+dependencies = [
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.29.0",
+    "sqlalchemy==2.0.30",
+    "alembic==1.13.1",
+    "asyncpg>=0.29.0",
+    "psycopg2-binary>=2.9.9",
+    "python-jose[cryptography]==3.3.0",
+    "passlib[bcrypt]==1.7.4",
+    "pydantic-settings>=2.2.1",
+    "pydantic[email]>=2.7.1",
+    "plaid-python>=17.0.0",
+    "openai>=1.30.1",
+    "cryptography>=42.0.7",
+    "python-multipart>=0.0.9",
+    "httpx>=0.27.0",
+    "python-dateutil>=2.9.0",
+    "greenlet>=3.0.3",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
