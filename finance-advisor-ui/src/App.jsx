@@ -7,13 +7,13 @@ import Transactions from './pages/Transactions.jsx'
 import Advisor from './pages/Advisor.jsx'
 
 function PrivateRoute({ children }) {
-  const token = localStorage.getItem('finsight_token')
+  const token = localStorage.getItem('token')
   if (!token) return <Navigate to="/login" replace />
   return children
 }
 
 function PublicRoute({ children }) {
-  const token = localStorage.getItem('finsight_token')
+  const token = localStorage.getItem('token')
   if (token) return <Navigate to="/dashboard" replace />
   return children
 }

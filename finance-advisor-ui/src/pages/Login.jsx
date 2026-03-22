@@ -11,7 +11,7 @@ export default function Login() {
   const mutation = useMutation({
     mutationFn: login,
     onSuccess: (res) => {
-      localStorage.setItem('finsight_token', res.data.access_token)
+      localStorage.setItem('token', res.data.access_token)
       navigate('/dashboard')
     },
     onError: (err) => {

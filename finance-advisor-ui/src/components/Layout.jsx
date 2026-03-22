@@ -10,7 +10,7 @@ export default function Layout() {
   const navigate = useNavigate()
 
   const handleLogout = () => {
-    localStorage.removeItem('finsight_token')
+    localStorage.removeItem('token')
     navigate('/login')
   }
 

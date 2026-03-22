@@ -11,7 +11,7 @@ export default function Register() {
   const mutation = useMutation({
     mutationFn: ({ email, password }) => register({ email, password }),
     onSuccess: (res) => {
-      localStorage.setItem('finsight_token', res.data.access_token)
+      localStorage.setItem('token', res.data.access_token)
       navigate('/dashboard')
     },
     onError: (err) => {

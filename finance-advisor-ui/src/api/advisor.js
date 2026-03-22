@@ -1,9 +1,11 @@
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+
 // Streaming chat using native fetch (not axios) to handle ReadableStream
 export const streamChat = async (message, onChunk, onDone, onError) => {
-  const token = localStorage.getItem('finsight_token')
+  const token = localStorage.getItem('token')
 
   try {
-    const response = await fetch('/advisor/chat', {
+    const response = await fetch(`${API_URL}/advisor/chat`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -14,7 +16,7 @@ export const streamChat = async (message, onChunk, onDone, onError) => {
 
     if (!response.ok) {
       if (response.status === 401) {
-        localStorage.removeItem('finsight_token')
+        localStorage.removeItem('token')
         window.location.href = '/login'
         return
       }
