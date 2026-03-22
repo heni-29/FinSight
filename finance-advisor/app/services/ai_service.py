@@ -1,5 +1,5 @@
-import json
 import uuid
+from calendar import monthrange
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import AsyncGenerator
@@ -12,207 +12,101 @@ from sqlalchemy.orm import selectinload
 from app.config import settings
 from app.models.models import AIConversation, Category, Transaction
 
-client = AsyncOpenAI(api_key=settings.OPENAI_API_KEY)
+client = AsyncOpenAI(
+    api_key=settings.GROQ_API_KEY,
+    base_url="https://api.groq.com/openai/v1",
+)
 
-SYSTEM_PROMPT = """You are a personal finance advisor named FinSight AI. You have access to the user's real transaction data via function tools. Be specific, reference actual numbers, and give actionable advice. When analyzing finances, always use the available tools to fetch real data before making recommendations. Be concise, warm, and professional."""
-
-TOOLS = [
-    {
-        "type": "function",
-        "function": {
-            "name": "get_spending_by_category",
-            "description": "Get the user's spending broken down by category for a specific month",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "month": {
-                        "type": "string",
-                        "description": "Month in YYYY-MM format, e.g. '2024-01'",
-                    }
-                },
-                "required": ["month"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "compare_to_last_month",
-            "description": "Compare spending in a specific category between current and previous month",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "category": {
-                        "type": "string",
-                        "description": "Category name to compare",
-                    }
-                },
-                "required": ["category"],
-            },
-        },
-    },
-    {
-        "type": "function",
-        "function": {
-            "name": "flag_anomalies",
-            "description": "Find transactions that exceed N times the category average spend",
-            "parameters": {
-                "type": "object",
-                "properties": {
-                    "threshold_multiplier": {
-                        "type": "number",
-                        "description": "Multiplier above category average to flag as anomaly (e.g. 2.0 means 2x average)",
-                    }
-                },
-                "required": ["threshold_multiplier"],
-            },
-        },
-    },
-]
+MODEL = "llama-3.3-70b-versatile"
 
 
-def _decimal_default(obj):
-    if isinstance(obj, Decimal):
-        return float(obj)
-    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+def _fmt(amount: float) -> str:
+    return f"${amount:,.2f}"
 
 
-async def _get_spending_by_category(db: AsyncSession, user_id: uuid.UUID, month: str) -> dict:
-    year, mon = map(int, month.split("-"))
-    from calendar import monthrange
-
-    start = datetime(year, mon, 1, tzinfo=timezone.utc)
-    last_day = monthrange(year, mon)[1]
-    end = datetime(year, mon, last_day, 23, 59, 59, tzinfo=timezone.utc)
-
-    q = (
-        select(Transaction)
-        .options(selectinload(Transaction.category))
-        .where(
-            and_(
-                Transaction.user_id == user_id,
-                Transaction.date >= start,
-                Transaction.date <= end,
-                Transaction.amount > 0,
-            )
-        )
-    )
-    result = await db.execute(q)
-    transactions = result.scalars().all()
-
-    by_category: dict[str, float] = {}
-    for t in transactions:
-        cat = t.category.name if t.category else "Uncategorized"
-        by_category[cat] = by_category.get(cat, 0.0) + float(t.amount)
-
-    return {"month": month, "by_category": by_category, "total": sum(by_category.values())}
-
-
-async def _compare_to_last_month(db: AsyncSession, user_id: uuid.UUID, category: str) -> dict:
-    from calendar import monthrange
-    from dateutil.relativedelta import relativedelta
-
+async def _build_financial_context(db: AsyncSession, user_id: uuid.UUID) -> str:
+    """Fetch real transaction data and format it as context for the AI."""
     now = datetime.now(timezone.utc)
+
+    # Current month
     curr_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
     curr_end = datetime(now.year, now.month, monthrange(now.year, now.month)[1], 23, 59, 59, tzinfo=timezone.utc)
 
-    prev = now - relativedelta(months=1)
-    prev_start = datetime(prev.year, prev.month, 1, tzinfo=timezone.utc)
-    prev_end = datetime(prev.year, prev.month, monthrange(prev.year, prev.month)[1], 23, 59, 59, tzinfo=timezone.utc)
+    # Previous month
+    prev_month = now.month - 1 if now.month > 1 else 12
+    prev_year = now.year if now.month > 1 else now.year - 1
+    prev_start = datetime(prev_year, prev_month, 1, tzinfo=timezone.utc)
+    prev_end = datetime(prev_year, prev_month, monthrange(prev_year, prev_month)[1], 23, 59, 59, tzinfo=timezone.utc)
 
-    async def _sum_for_period(start, end):
-        q = (
-            select(func.sum(Transaction.amount))
-            .join(Category, Transaction.category_id == Category.id)
-            .where(
-                and_(
-                    Transaction.user_id == user_id,
-                    Transaction.date >= start,
-                    Transaction.date <= end,
-                    Transaction.amount > 0,
-                    Category.name.ilike(f"%{category}%"),
-                )
-            )
+    async def get_txns(start, end):
+        result = await db.execute(
+            select(Transaction)
+            .options(selectinload(Transaction.category))
+            .where(and_(Transaction.user_id == user_id, Transaction.date >= start, Transaction.date <= end))
+            .order_by(Transaction.date.desc())
         )
-        result = await db.execute(q)
-        return float(result.scalar_one() or 0)
+        return result.scalars().all()
 
-    curr_total = await _sum_for_period(curr_start, curr_end)
-    prev_total = await _sum_for_period(prev_start, prev_end)
-    change_pct = ((curr_total - prev_total) / prev_total * 100) if prev_total else 0
+    curr_txns = await get_txns(curr_start, curr_end)
+    prev_txns = await get_txns(prev_start, prev_end)
 
-    return {
-        "category": category,
-        "current_month": curr_total,
-        "previous_month": prev_total,
-        "change_amount": curr_total - prev_total,
-        "change_percent": round(change_pct, 2),
-    }
+    def summarize(txns):
+        income = sum(float(t.amount) for t in txns if float(t.amount) < 0)
+        expenses = sum(float(t.amount) for t in txns if float(t.amount) > 0)
+        by_cat: dict[str, float] = {}
+        for t in txns:
+            if float(t.amount) > 0:
+                cat = t.category.name if t.category else "Uncategorized"
+                by_cat[cat] = by_cat.get(cat, 0.0) + float(t.amount)
+        return income, expenses, by_cat
 
+    curr_income, curr_exp, curr_cat = summarize(curr_txns)
+    prev_income, prev_exp, prev_cat = summarize(prev_txns)
 
-async def _flag_anomalies(db: AsyncSession, user_id: uuid.UUID, threshold_multiplier: float) -> dict:
-    from dateutil.relativedelta import relativedelta
+    curr_label = now.strftime("%B %Y")
+    prev_label = datetime(prev_year, prev_month, 1).strftime("%B %Y")
 
-    now = datetime.now(timezone.utc)
-    start = now - relativedelta(days=90)
+    lines = [
+        f"## User's Financial Data (as of {now.strftime('%B %d, %Y')})",
+        "",
+        f"### {curr_label} (current month)",
+        f"- Total income: {_fmt(abs(curr_income))}",
+        f"- Total expenses: {_fmt(curr_exp)}",
+        f"- Net: {_fmt(abs(curr_income) - curr_exp)}",
+        f"- Number of transactions: {len(curr_txns)}",
+    ]
 
-    q = (
-        select(Transaction)
-        .options(selectinload(Transaction.category))
-        .where(
-            and_(
-                Transaction.user_id == user_id,
-                Transaction.date >= start,
-                Transaction.amount > 0,
-            )
-        )
-    )
-    result = await db.execute(q)
-    transactions = result.scalars().all()
+    if curr_cat:
+        lines.append("- Spending by category:")
+        for cat, amt in sorted(curr_cat.items(), key=lambda x: -x[1])[:8]:
+            lines.append(f"  - {cat}: {_fmt(amt)}")
 
-    cat_amounts: dict[str, list[float]] = {}
-    for t in transactions:
-        cat = t.category.name if t.category else "Uncategorized"
-        cat_amounts.setdefault(cat, []).append(float(t.amount))
+    lines += [
+        "",
+        f"### {prev_label} (previous month)",
+        f"- Total income: {_fmt(abs(prev_income))}",
+        f"- Total expenses: {_fmt(prev_exp)}",
+        f"- Net: {_fmt(abs(prev_income) - prev_exp)}",
+    ]
 
-    cat_averages = {cat: sum(amounts) / len(amounts) for cat, amounts in cat_amounts.items()}
+    if prev_cat:
+        lines.append("- Spending by category:")
+        for cat, amt in sorted(prev_cat.items(), key=lambda x: -x[1])[:8]:
+            lines.append(f"  - {cat}: {_fmt(amt)}")
 
-    anomalies = []
-    for t in transactions:
-        cat = t.category.name if t.category else "Uncategorized"
-        avg = cat_averages.get(cat, 0)
-        if avg > 0 and float(t.amount) > avg * threshold_multiplier:
-            anomalies.append({
-                "id": str(t.id),
-                "date": t.date.isoformat(),
-                "merchant": t.merchant_name or t.raw_name,
-                "amount": float(t.amount),
-                "category": cat,
-                "category_avg": round(avg, 2),
-                "multiplier": round(float(t.amount) / avg, 2),
-            })
-            t.is_anomaly = True
+    # Recent transactions
+    if curr_txns:
+        lines += ["", "### Recent transactions (last 10)"]
+        for t in curr_txns[:10]:
+            cat = t.category.name if t.category else "Uncategorized"
+            name = t.merchant_name or t.raw_name or "Unknown"
+            sign = "-" if float(t.amount) < 0 else "+"
+            lines.append(f"  - {t.date.strftime('%b %d')}: {name} ({cat}) {sign}{_fmt(abs(float(t.amount)))}")
 
-    await db.commit()
+    if not curr_txns and not prev_txns:
+        lines += ["", "Note: No transaction data found yet. The user may not have connected a bank account or added transactions manually."]
 
-    return {
-        "threshold_multiplier": threshold_multiplier,
-        "anomalies_found": len(anomalies),
-        "anomalies": anomalies[:20],
-    }
-
-
-async def _execute_tool(db: AsyncSession, user_id: uuid.UUID, tool_name: str, tool_args: dict) -> str:
-    if tool_name == "get_spending_by_category":
-        result = await _get_spending_by_category(db, user_id, tool_args["month"])
-    elif tool_name == "compare_to_last_month":
-        result = await _compare_to_last_month(db, user_id, tool_args["category"])
-    elif tool_name == "flag_anomalies":
-        result = await _flag_anomalies(db, user_id, tool_args["threshold_multiplier"])
-    else:
-        result = {"error": f"Unknown tool: {tool_name}"}
-
-    return json.dumps(result, default=_decimal_default)
+    return "\n".join(lines)
 
 
 async def get_or_create_conversation(db: AsyncSession, user_id: uuid.UUID) -> AIConversation:
@@ -236,53 +130,25 @@ async def chat_stream(
 ) -> AsyncGenerator[str, None]:
     conv = await get_or_create_conversation(db, user_id)
 
+    # Build financial context from real DB data
+    financial_context = await _build_financial_context(db, user_id)
+
+    system_prompt = f"""You are FinSight AI, a personal finance advisor. You have access to the user's real transaction data shown below. Use it to give specific, numbers-backed advice. Be concise, warm, and actionable.
+
+{financial_context}"""
+
     history = list(conv.messages) if conv.messages else []
     history.append({"role": "user", "content": message})
 
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}] + history
+    messages = [{"role": "system", "content": system_prompt}] + history
 
-    # Phase 1: Non-streaming call ONLY if tool use might be needed
-    response = await client.chat.completions.create(
-        model="gpt-4o",
-        messages=messages,
-        tools=TOOLS,
-        tool_choice="auto",
-        stream=False,
-    )
-
-    resp_message = response.choices[0].message
-
-    # Resolve all tool calls iteratively
-    while resp_message.tool_calls:
-        messages.append(resp_message)
-
-        for tool_call in resp_message.tool_calls:
-            tool_name = tool_call.function.name
-            tool_args = json.loads(tool_call.function.arguments)
-            tool_result = await _execute_tool(db, user_id, tool_name, tool_args)
-            messages.append({
-                "role": "tool",
-                "tool_call_id": tool_call.id,
-                "content": tool_result,
-            })
-
-        response = await client.chat.completions.create(
-            model="gpt-4o",
-            messages=messages,
-            tools=TOOLS,
-            tool_choice="auto",
-            stream=False,
-        )
-        resp_message = response.choices[0].message
-
-    # Phase 2: Stream the final response
-    # If the non-streaming response already has the final content (no tool calls were
-    # triggered at all, or after tool resolution), stream it directly from the current
-    # messages context so the model produces a fresh streaming output.
+    # Stream the response directly — no tool calling needed, data is in context
     stream = await client.chat.completions.create(
-        model="gpt-4o",
+        model=MODEL,
         messages=messages,
         stream=True,
+        max_tokens=1024,
+        temperature=0.7,
     )
 
     streamed_content = ""
@@ -292,8 +158,7 @@ async def chat_stream(
             streamed_content += delta
             yield delta
 
-    # Persist conversation: only keep user/assistant turns (not tool messages)
+    # Persist conversation history
     history.append({"role": "assistant", "content": streamed_content})
     conv.messages = history
     await db.commit()
-

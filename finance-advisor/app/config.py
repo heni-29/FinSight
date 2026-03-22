@@ -22,8 +22,8 @@ class Settings(BaseSettings):
     PLAID_SECRET: str = ""
     PLAID_ENV: str = "sandbox"
 
-    # OpenAI
-    OPENAI_API_KEY: str = ""
+    # Groq
+    GROQ_API_KEY: str = ""
 
     # Encryption
     ENCRYPTION_KEY: str = ""
