@@ -1,10 +1,10 @@
 # FinSight
 
-AI-powered personal finance advisor. Connect your bank, track spending, and get real-time financial advice from GPT-4o.
+AI-powered personal finance advisor. Connect your bank, track spending, and get real-time financial advice from llama-3.3-70b-versatile.
 
 ## Features
 
-- AI chat advisor backed by your real transaction data (GPT-4o with function calling)
+- AI chat advisor backed by your real transaction data (llama-3.3-70b-versatile with function calling)
 - Bank account integration via Plaid Link
 - Dashboard with spending summary and charts
 - Transaction management with filters and manual entry
@@ -63,7 +63,7 @@ Open http://localhost:5173
 | `PLAID_CLIENT_ID` | From dashboard.plaid.com |
 | `PLAID_SECRET` | Plaid sandbox or production secret |
 | `PLAID_ENV` | `sandbox` or `production` |
-| `OPENAI_API_KEY` | From platform.openai.com |
+| `GROQ_API_KEY` | From console.groq.com |
 | `ENCRYPTION_KEY` | Base64-encoded 32-byte key for AES-256 |
 
 Generate keys:
