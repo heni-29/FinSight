@@ -7,9 +7,7 @@ RUN pip install --upgrade pip && pip install .
 
 COPY . .
 
-RUN alembic upgrade head
-
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["./start.sh"]
 
 # Expose port
 EXPOSE 8000
