@@ -1,7 +1,7 @@
 [build]
-  base = "."
+  base = "finance-advisor-ui"
   command = "npm run build"
-  publish = "dist"
+  publish = "finance-advisor-ui/dist"
 
 [[redirects]]
   from = "/*"
