@@ -1,6 +1,6 @@
 # FinSight
 
-AI-powered personal finance advisor. Connect your bank, track spending, and get real-time financial advice from GPT-4o.
+AI-powered personal finance advisor. Connect your bank, track spending, and get real-time financial advice from llama-3.3-70b-versatile.
 
 ## Features
 
