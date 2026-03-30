@@ -45,7 +45,7 @@ export default function TransactionTable({ transactions = [], loading, onDelete,
   if (!transactions.length) {
     return (
       <div className="empty-state">
-        <div className="empty-state-icon">💳</div>
+        <div className="empty-state-icon">—</div>
         <p>No transactions found</p>
         <p style={{ fontSize: '0.875rem', marginTop: '0.5rem', color: 'var(--color-text-dim)' }}>
           Add a transaction manually or connect your bank account

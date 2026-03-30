@@ -1,9 +1,9 @@
 import { Outlet, NavLink, useNavigate } from 'react-router-dom'
 
 const navItems = [
-  { to: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { to: '/transactions', label: 'Transactions', icon: '💳' },
-  { to: '/advisor', label: 'AI Advisor', icon: '🤖' },
+  { to: '/dashboard', label: 'Dashboard' },
+  { to: '/transactions', label: 'Transactions' },
+  { to: '/advisor', label: 'AI Advisor' },
 ]
 
 export default function Layout() {
@@ -18,7 +18,6 @@ export default function Layout() {
     <div className="app-layout">
       <aside className="sidebar">
         <div className="sidebar-logo">
-          <div className="sidebar-logo-icon">💎</div>
           <span className="sidebar-logo-text">FinSight</span>
         </div>
 
@@ -30,15 +29,20 @@ export default function Layout() {
               to={item.to}
               className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
             >
-              <span className="nav-link-icon">{item.icon}</span>
               {item.label}
             </NavLink>
           ))}
         </nav>
 
         <div className="sidebar-footer">
+          <NavLink
+            to="/profile"
+            className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}
+            style={{ width: '100%', marginBottom: '0.5rem' }}
+          >
+            Profile
+          </NavLink>
           <button className="nav-link btn-ghost" style={{ width: '100%', border: 'none' }} onClick={handleLogout}>
-            <span className="nav-link-icon">🚪</span>
             Sign Out
           </button>
         </div>

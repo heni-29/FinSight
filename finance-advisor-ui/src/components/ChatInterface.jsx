@@ -4,7 +4,7 @@ import { streamChat } from '../api/advisor'
 const WELCOME = {
   role: 'ai',
   content:
-    "Hi! I'm your FinSight AI advisor 💎. I have access to your real transaction data and can help you understand your spending, identify patterns, and give personalized advice. What would you like to know?",
+    "Hi! I'm your FinSight AI advisor. I have access to your real transaction data and can help you understand your spending, identify patterns, and give personalized advice. What would you like to know?",
 }
 
 /** Render message content: turn newlines into <br> elements */
@@ -87,7 +87,7 @@ export default function ChatInterface() {
   return (
     <div className="chat-wrapper">
       <div className="chat-header">
-        <div className="chat-avatar">🤖</div>
+        <div className="chat-avatar">AI</div>
         <div>
           <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>FinSight AI Advisor</div>
           <div style={{ fontSize: '0.8rem', color: 'var(--color-success)' }}>
@@ -110,7 +110,7 @@ export default function ChatInterface() {
         {messages.map((msg, i) => (
           <div key={i} className={`message ${msg.role}`}>
             <div className="message-avatar">
-              {msg.role === 'ai' ? '🤖' : '👤'}
+              {msg.role === 'ai' ? 'AI' : 'You'}
             </div>
             <div className="message-bubble">
               {msg.content ? (

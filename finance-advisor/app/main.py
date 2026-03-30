@@ -5,6 +5,7 @@ from app.routers.auth import router as auth_router
 from app.routers.transactions import router as transactions_router
 from app.routers.plaid import router as plaid_router
 from app.routers.advisor import router as advisor_router
+from app.routers.users import router as users_router
 
 app = FastAPI(
     title="FinSight AI Finance Advisor",
@@ -32,6 +33,7 @@ app.include_router(auth_router)
 app.include_router(transactions_router)
 app.include_router(plaid_router)
 app.include_router(advisor_router)
+app.include_router(users_router)
 
 
 @app.get("/health")

@@ -17,7 +17,7 @@ export default function Advisor() {
       <header className="topbar">
         <h1 className="topbar-title">AI Advisor</h1>
         <div className="topbar-actions">
-          <span className="badge badge-primary">🤖 Powered by GPT-4o</span>
+          <span className="badge badge-primary">Powered by GPT-4o</span>
         </div>
       </header>
 

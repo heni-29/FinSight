@@ -78,7 +78,7 @@ function ConnectBankButton({ onConnected }) {
         {isLoading ? (
           <><div className="spinner" style={{ width: 16, height: 16 }} /> Connecting...</>
         ) : (
-          '🏦 Connect Bank Account'
+          'Connect Bank Account'
         )}
       </button>
       {status && (
@@ -123,39 +123,24 @@ export default function Dashboard() {
       <main className="page">
         <SummaryCards summary={summaryData} loading={summaryLoading} />
 
-        <div className="dashboard-grid">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.5rem', marginTop: '1.5rem', alignItems: 'start' }}>
+          {/* Left Column */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             <SpendingChart summary={summaryData} loading={summaryLoading} />
 
-            <div className="card" style={{ padding: 0 }}>
-              <div style={{ padding: '1.25rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
-                <h2 style={{ fontSize: '1rem', fontWeight: 700 }}>Recent Transactions</h2>
-                <Link to="/transactions" style={{ fontSize: '0.875rem', color: 'var(--color-primary-light)' }}>
-                  View all →
-                </Link>
-              </div>
-              <TransactionTable
-                transactions={txnData?.items ?? []}
-                loading={txnLoading}
-                compact
-              />
-            </div>
-          </div>
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
             {/* Top Categories Card */}
-            <div className="card">
-              <h2 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '1.25rem' }}>📅 This Month</h2>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            <div className="card" style={{ minHeight: '300px' }}>
+              <h2 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '1rem' }}>Top Categories</h2>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 {summaryData?.by_category &&
                   Object.entries(summaryData.by_category)
                     .sort(([, a], [, b]) => b - a)
-                    .slice(0, 5)
+                    .slice(0, 6)
                     .map(([cat, amount]) => (
                       <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)' }}>{cat}</span>
-                        <span style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-danger)' }}>
-                          -${Number(amount).toFixed(2)}
+                        <span style={{ fontSize: '0.825rem', color: 'var(--color-text-muted)' }}>{cat}</span>
+                        <span style={{ fontSize: '0.825rem', fontWeight: 600, color: 'var(--color-danger)' }}>
+                          ${Number(amount).toFixed(2)}
                         </span>
                       </div>
                     ))}
@@ -164,16 +149,35 @@ export default function Dashboard() {
                 )}
               </div>
             </div>
+          </div>
+
+          {/* Right Column */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {/* Recent Transactions */}
+            <div className="card" style={{ padding: 0, display: 'flex', flexDirection: 'column', minHeight: '320px' }}>
+              <div style={{ padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--color-border)' }}>
+                <h2 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Recent Transactions</h2>
+                <Link to="/transactions" style={{ fontSize: '0.75rem', color: 'var(--color-primary-light)' }}>
+                  View all →
+                </Link>
+              </div>
+              <div style={{ padding: '1rem 1.5rem', flex: 1 }}>
+                <TransactionTable
+                  transactions={txnData?.items ?? []}
+                  loading={txnLoading}
+                  compact
+                />
+              </div>
+            </div>
 
             {/* AI Advisor CTA */}
-            <div className="card" style={{ background: 'var(--gradient-card)', borderColor: 'rgba(99,102,241,0.25)' }}>
-              <div style={{ fontSize: '2rem', marginBottom: '0.75rem' }}>🤖</div>
-              <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: '0.5rem' }}>AI Finance Advisor</h3>
-              <p style={{ fontSize: '0.875rem', color: 'var(--color-text-muted)', marginBottom: '1.25rem' }}>
-                Get personalized insights based on your actual spending data.
+            <div className="card" style={{ background: 'var(--gradient-card)', borderColor: 'rgba(99,102,241,0.25)', padding: '1.25rem' }}>
+              <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: '0.5rem' }}>AI Finance Advisor</h3>
+              <p style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
+                Get personalized insights based on your spending patterns.
               </p>
               <Link to="/advisor" className="btn btn-primary btn-sm">
-                Chat with AI →
+                Start Chat →
               </Link>
             </div>
           </div>

@@ -21,19 +21,19 @@ export default function SummaryCards({ summary, loading }) {
   const cards = [
     {
       cls: 'income',
-      label: '💰 Income',
+      label: 'Income',
       key: 'income',
       amountCls: 'income',
     },
     {
       cls: 'expense',
-      label: '📉 Expenses',
+      label: 'Expenses',
       key: 'expenses',
       amountCls: 'expense',
     },
     {
       cls: 'net',
-      label: '✨ Net',
+      label: 'Net',
       key: 'net',
       amountCls: 'net',
     },

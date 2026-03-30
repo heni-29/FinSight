@@ -669,7 +669,7 @@ tbody td {
 }
 
 .page {
-  flex: 1;
+  flex: 0 1 auto;
   padding: 2rem;
   max-width: 1400px;
   width: 100%;
