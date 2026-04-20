@@ -118,7 +118,7 @@ export default function Login() {
           {demoMutation.isPending ? (
             <><div className="spinner" /> Loading demo...</>
           ) : (
-            'Try Demo — No signup needed'
+            'Try Demo'
           )}
         </button>
 

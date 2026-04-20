@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,11 +39,12 @@ async def login(
 
 @router.post("/demo", response_model=Token)
 async def demo_login(
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """
-    One-click demo login endpoint. Creates or retrieves demo@finsight.com user
-    and seeds them with realistic demo transactions if they don't exist yet.
+    One-click demo login endpoint. Creates or retrieves demo@finsight.com user.
+    Demo data seeding happens in the background (non-blocking).
     Returns a JWT token for immediate access.
     """
     demo_email = "demo@finsight.com"
@@ -63,9 +64,9 @@ async def demo_login(
         await db.commit()
         await db.refresh(demo_user)
 
-        # Seed demo data
-        await seed_demo_data(demo_user.id, db)
+        # Seed demo data in background (non-blocking)
+        background_tasks.add_task(seed_demo_data, demo_user.id, db)
 
-    # Generate and return token
+    # Generate and return token immediately (don't wait for seeding)
     token = create_access_token(demo_user.id, demo_user.email)
     return Token(access_token=token)

@@ -4,6 +4,7 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.dialects.postgresql import insert
 
 from app.models.models import Category, Transaction
 
@@ -44,10 +45,37 @@ DEMO_INCOME = [
 ]
 
 
+async def get_or_create_categories(db: AsyncSession) -> dict:
+    """
+    Fast category retrieval - queries once and returns all categories.
+    Used by startup and demo seeding.
+    """
+    categories_names = [
+        "Groceries", "Dining", "Transport", "Entertainment",
+        "Shopping", "Health", "Utilities", "Income"
+    ]
+    
+    result = await db.execute(
+        select(Category).where(Category.name.in_(categories_names))
+    )
+    existing_categories = {cat.name: cat for cat in result.scalars().all()}
+    
+    # Create missing categories in bulk
+    missing_names = set(categories_names) - set(existing_categories.keys())
+    if missing_names:
+        new_categories = [Category(name=name) for name in missing_names]
+        db.add_all(new_categories)
+        await db.flush()
+        for cat in new_categories:
+            existing_categories[cat.name] = cat
+    
+    return {name: existing_categories.get(name) for name in categories_names}
+
+
 async def seed_demo_data(user_id: uuid.UUID, db: AsyncSession) -> None:
     """
     Seed demo user with realistic transactions spread over the last 30 days.
-    Only inserts if the user has no existing transactions.
+    Uses bulk insert for performance. Only inserts if the user has no existing transactions.
     """
     # Check if user already has transactions
     result = await db.execute(
@@ -57,33 +85,12 @@ async def seed_demo_data(user_id: uuid.UUID, db: AsyncSession) -> None:
         # User already has transactions, don't seed again
         return
 
-    # Get or create categories
-    categories_data = {
-        "Groceries": None,
-        "Dining": None,
-        "Transport": None,
-        "Entertainment": None,
-        "Shopping": None,
-        "Health": None,
-        "Utilities": None,
-        "Income": None,
-    }
-
-    for cat_name in categories_data.keys():
-        result = await db.execute(
-            select(Category).where(Category.name == cat_name)
-        )
-        category = result.scalar_one_or_none()
-        if not category:
-            category = Category(name=cat_name)
-            db.add(category)
-        categories_data[cat_name] = category
-
-    await db.flush()  # Ensure categories are created before adding transactions
+    # Get or create categories (bulk operation)
+    categories_data = await get_or_create_categories(db)
 
     # Create transactions spread over last 30 days
     now = datetime.now(timezone.utc)
-    transactions = []
+    transactions_to_insert = []
 
     # Add expense transactions
     for idx, txn_data in enumerate(DEMO_TRANSACTIONS):
@@ -91,16 +98,15 @@ async def seed_demo_data(user_id: uuid.UUID, db: AsyncSession) -> None:
         transaction_date = now - timedelta(days=days_offset)
 
         category = categories_data[txn_data["category"]]
-        transaction = Transaction(
-            user_id=user_id,
-            merchant_name=txn_data["merchant"],
-            amount=Decimal(str(txn_data["amount"])),
-            date=transaction_date,
-            category_id=category.id if category else None,
-            is_anomaly=False,
-        )
-        transactions.append(transaction)
-        db.add(transaction)
+        transactions_to_insert.append({
+            "id": uuid.uuid4(),
+            "user_id": user_id,
+            "merchant_name": txn_data["merchant"],
+            "amount": Decimal(str(txn_data["amount"])),
+            "date": transaction_date,
+            "category_id": category.id if category else None,
+            "is_anomaly": False,
+        })
 
     # Add income transactions
     for idx, txn_data in enumerate(DEMO_INCOME):
@@ -108,15 +114,19 @@ async def seed_demo_data(user_id: uuid.UUID, db: AsyncSession) -> None:
         if days_offset <= 30:
             transaction_date = now - timedelta(days=days_offset)
             category = categories_data.get("Income")
-            transaction = Transaction(
-                user_id=user_id,
-                merchant_name=txn_data["merchant"],
-                amount=Decimal(str(-txn_data["amount"])),  # Negative for income
-                date=transaction_date,
-                category_id=category.id if category else None,
-                is_anomaly=False,
-            )
-            transactions.append(transaction)
-            db.add(transaction)
+            transactions_to_insert.append({
+                "id": uuid.uuid4(),
+                "user_id": user_id,
+                "merchant_name": txn_data["merchant"],
+                "amount": Decimal(str(-txn_data["amount"])),  # Negative for income
+                "date": transaction_date,
+                "category_id": category.id if category else None,
+                "is_anomaly": False,
+            })
 
+    # Bulk insert all transactions at once
+    if transactions_to_insert:
+        stmt = insert(Transaction).values(transactions_to_insert)
+        await db.execute(stmt)
+    
     await db.commit()
