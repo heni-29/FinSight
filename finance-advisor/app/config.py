@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     )
 
     # Database
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:password@localhost:5432/finsight"
+    DATABASE_URL: str = "postgresql+asyncpg://neondb_owner:npg_DpNFA4GkY8Le@ep-royal-violet-an41s3uz-pooler.c-6.us-east-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
 
     # JWT
     SECRET_KEY: str = "change-me-in-production-at-least-32-chars!!!"

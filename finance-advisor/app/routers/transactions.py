@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -57,7 +57,7 @@ async def get_summary(
     year: int = Query(default=None),
     month: int = Query(default=None),
 ):
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     y = year or now.year
     m = month or now.month
     return await transaction_service.get_monthly_summary(db, current_user.id, y, m)
